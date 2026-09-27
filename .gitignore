@@ -1,0 +1,11 @@
+# Excluir datos crudos con potencial de información sensible
+data/crudos/
+
+# Checkpoints de Jupyter y Google Colab
+.ipynb_checkpoints/
+.DS_Store
+
+# Archivos de entorno y caché de Python
+__pycache__/
+*.pyc
+.venv/
