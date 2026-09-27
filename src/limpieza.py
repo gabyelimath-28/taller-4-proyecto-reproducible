@@ -8,7 +8,7 @@ def limpiar(df: pd.DataFrame) -> pd.DataFrame:
     df_clean = df.copy()
     if "id_persona" in df_clean.columns:
         df_clean = df_clean.drop_duplicates(subset=["id_persona"])
-        
+
     q1, q3 = df_clean["ingreso"].quantile([0.25, 0.75])
     iqr = q3 - q1
     limite_superior = q3 + 3 * iqr
@@ -21,8 +21,8 @@ def agregar_variables(df: pd.DataFrame) -> pd.DataFrame:
     df_proc = df.copy()
     df_proc["log_ingreso"] = np.log(df_proc["ingreso"])
     df_proc["grupo_edad"] = pd.cut(
-        df_proc["edad"], 
-        bins=[17, 29, 45, 65], 
+        df_proc["edad"],
+        bins=[17, 29, 45, 65],
         labels=["Jóvenes", "Adultos", "Mayores"]
     )
     return df_proc
@@ -30,9 +30,22 @@ def agregar_variables(df: pd.DataFrame) -> pd.DataFrame:
 def anonimizar(df: pd.DataFrame, sal: str = "clave-secreta-ecuador-2026") -> pd.DataFrame:
     """Anonimiza identificadores directos e indirectos cumpliendo LOPDP."""
     df_a = df.copy()
+    
+    # Seudonimizar cédula y eliminar identificadores directos
     if "cedula" in df_a.columns:
         df_a["id_seudonimo"] = df_a["cedula"].apply(
             lambda x: hashlib.sha256((str(x) + sal).encode("utf-8")).hexdigest()[:12]
         )
-    columnas_sensibles = [c for c in ["nombre", "fecha_nac", "cedula"] if c in df_a.columns]
-    return df_a.drop(columns=columnas_sensibles)
+    
+    cols_a_eliminar = [c for c in ["nombre", "fecha_nac", "cedula"] if c in df_a.columns]
+    df_a = df_a.drop(columns=cols_a_eliminar)
+
+    # Generalizar edad
+    if "edad" in df_a.columns:
+        df_a["rango_edad"] = pd.cut(df_a["edad"], bins=range(10, 90, 10), right=False)
+
+    # Redondear ingreso
+    if "ingreso" in df_a.columns:
+        df_a["ingreso_redondeado"] = (df_a["ingreso"] / 10).round() * 10
+
+    return df_a
