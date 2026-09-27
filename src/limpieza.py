@@ -1,4 +1,4 @@
-"""Funciones de limpieza y procesamiento del proyecto."""
+"""Funciones de limpieza, procesamiento y anonimización del proyecto."""
 import numpy as np
 import pandas as pd
 import hashlib
@@ -27,25 +27,25 @@ def agregar_variables(df: pd.DataFrame) -> pd.DataFrame:
     )
     return df_proc
 
-def anonimizar(df: pd.DataFrame, sal: str = "clave-secreta-ecuador-2026") -> pd.DataFrame:
-    """Anonimiza identificadores directos e indirectos cumpliendo LOPDP."""
-    df_a = df.copy()
+def anonimizar(df: pd.DataFrame, sal: str) -> pd.DataFrame:
+    """Elimina datos identificables, seudonimiza la cédula y generaliza variables sensibles."""
+    df_anon = df.copy()
     
-    # Seudonimizar cédula y eliminar identificadores directos
-    if "cedula" in df_a.columns:
-        df_a["id_seudonimo"] = df_a["cedula"].apply(
-            lambda x: hashlib.sha256((str(x) + sal).encode("utf-8")).hexdigest()[:12]
-        )
+    # 1. Seudonimizar cédula con hash SHA-256 + sal
+    def hash_cedula(val):
+        return hashlib.sha256(f"{val}{sal}".encode("utf-8")).hexdigest()[:12]
     
-    cols_a_eliminar = [c for c in ["nombre", "fecha_nac", "cedula"] if c in df_a.columns]
-    df_a = df_a.drop(columns=cols_a_eliminar)
-
-    # Generalizar edad
-    if "edad" in df_a.columns:
-        df_a["rango_edad"] = pd.cut(df_a["edad"], bins=range(10, 90, 10), right=False)
-
-    # Redondear ingreso
-    if "ingreso" in df_a.columns:
-        df_a["ingreso_redondeado"] = (df_a["ingreso"] / 10).round() * 10
-
-    return df_a
+    if "cedula" in df_anon.columns:
+        df_anon["id_seudonimo"] = df_anon["cedula"].apply(hash_cedula)
+    
+    # 2. Eliminar identificadores directos
+    columnas_a_borrar = [c for c in ["nombre", "fecha_nac", "cedula"] if c in df_anon.columns]
+    df_anon = df_anon.drop(columns=columnas_a_borrar)
+    
+    # 3. Generalizar edad en rangos de 10 años y redondear ingresos a la decena
+    if "edad" in df_anon.columns:
+        df_anon["rango_edad"] = pd.cut(df_anon["edad"], bins=range(10, 90, 10), right=False, labels=[f"{i}-{i+9}" for i in range(10, 80, 10)])
+    if "ingreso" in df_anon.columns:
+        df_anon["ingreso_redondeado"] = (df_anon["ingreso"] / 10).round() * 10
+        
+    return df_anon
